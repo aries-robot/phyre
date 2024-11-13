@@ -36,7 +36,7 @@ pip install matplotlib tqdm ipywidgets yapf==0.28.0
 
 git clone https://github.com/facebookresearch/phyre.git
 cd phyre
-pip install -e src/python
+pip install -v -e src/python
 ```
 
   To check that the installation was successful, run `python -m phyre.server` and open http://localhost:30303. That should start a local demo server.

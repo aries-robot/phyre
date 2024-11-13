@@ -33,7 +33,8 @@ endif(HAVE_M_LIB)
 
 # Thrift CPP library.
 add_library(thrift STATIC IMPORTED)
-set_target_properties(thrift PROPERTIES IMPORTED_LOCATION $ENV{CONDA_PREFIX}/lib/libthrift.a)
+# set_target_properties(thrift PROPERTIES IMPORTED_LOCATION $ENV{CONDA_PREFIX}/lib/libthrift.a)
+set_target_properties(thrift PROPERTIES IMPORTED_LOCATION /usr/local/lib/libthrift.a)
 set_target_properties(thrift PROPERTIES INTERFACE_LINK_LIBRARIES Boost::program_options)
 set_target_properties(thrift PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${Boost_INCLUDE_DIRS};$ENV{CONDA_PREFIX}/include")
 
@@ -88,16 +89,16 @@ set(
   THRIFT_GEN_CPP_FILES
   gen-cpp/TaskService.cpp
   gen-cpp/TaskService.h
-  gen-cpp/scene_constants.cpp
-  gen-cpp/scene_constants.h
+  # gen-cpp/scene_constants.cpp
+  # gen-cpp/scene_constants.h
   gen-cpp/scene_types.cpp
   gen-cpp/scene_types.h
   gen-cpp/shared_constants.cpp
   gen-cpp/shared_constants.h
   gen-cpp/shared_types.cpp
   gen-cpp/shared_types.h
-  gen-cpp/task_constants.cpp
-  gen-cpp/task_constants.h
+  # gen-cpp/task_constants.cpp
+  # gen-cpp/task_constants.h
   gen-cpp/task_types.cpp
   gen-cpp/task_types.h
 )
@@ -107,14 +108,14 @@ file(GLOB THRIFT_SOURCE_FILES src/if/*.thrift)
 add_custom_command(
   OUTPUT
     gen-py/scene/__init__.py
-    gen-py/scene/constants.py
+    # gen-py/scene/constants.py
     gen-py/scene/ttypes.py
     gen-py/shared/__init__.py
     gen-py/shared/constants.py
     gen-py/shared/ttypes.py
     gen-py/task/TaskService.py
     gen-py/task/__init__.py
-    gen-py/task/constants.py
+    # gen-py/task/constants.py
     gen-py/task/ttypes.py
   COMMAND thrift -r --gen py ${CMAKE_SOURCE_DIR}/src/if/task.thrift
   COMMAND sed -i"" "'s/\\([a-z]\\+\\).ttypes/phyre.interface.\\1.ttypes/g'" gen-py/*/*.py

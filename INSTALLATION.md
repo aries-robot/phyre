@@ -41,6 +41,15 @@ pip install -e src/python
 
   To check that the installation was successful, run `python -m phyre.server` and open http://localhost:30303. That should start a local demo server.
 
+ ## ARIES Update
+ ```(bach)
+ sudo apt-get install npm
+ sudo apt-get install libboost-program-options-dev
+ sudo apt-get install libboost-all-dev
+ sudo apt-get install python3-pybind11
+ ```
+ - pip install thrift==0.21.0
+ - git clone thrift -> checkout v0.21.0 -> make with ./configure CFLAGS=-fPIC CXXFLAGS=-fPIC -> install thrift
 
  # Installation on Docker
 We provide a [Dockerfile](Dockerfile) that builds the package in a controlled environment that we used to convey all the experiments for the paper.

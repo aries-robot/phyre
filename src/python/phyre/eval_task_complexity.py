@@ -142,14 +142,16 @@ def compute_flags(tier, status_counts):
 
     flags = {}
     threshold = SOLVABILITY_THRESHOLD_PROBS[tier]
-    for suffix, count in [('', solution_attempts),
-                          ('_stable', stable_solution_attempts)]:
-        flags[f'good{suffix}'] = scipy.stats.binom_test(
-            count, n=valid_attempts, p=threshold,
-            alternative='greater') < P_VALUE
-        flags[f'bad{suffix}'] = scipy.stats.binom_test(
-            count, n=valid_attempts, p=2 * threshold,
-            alternative='less') < P_VALUE
+    
+    if valid_attempts > 0:
+        for suffix, count in [('', solution_attempts),
+                            ('_stable', stable_solution_attempts)]:
+            flags[f'good{suffix}'] = scipy.stats.binomtest(
+                count, n=valid_attempts, p=threshold,
+                alternative='greater').pvalue < P_VALUE
+            flags[f'bad{suffix}'] = scipy.stats.binomtest(
+                count, n=valid_attempts, p=2 * threshold,
+                alternative='less').pvalue < P_VALUE
 
     if not solution_attempts:
         flags[f'impossible'] = True

@@ -47,6 +47,7 @@ pip install -v -e src/python
  sudo apt-get install libboost-program-options-dev
  sudo apt-get install libboost-all-dev
  sudo apt-get install python3-pybind11
+ npm install thrift@0.21.0 # In phyre folder
  ```
  - pip install thrift==0.21.0
  - git clone thrift -> checkout v0.21.0 -> make with ./configure CFLAGS=-fPIC CXXFLAGS=-fPIC -> install thrift

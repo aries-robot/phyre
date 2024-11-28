@@ -21,7 +21,6 @@
 
 namespace {
 
-// One tenth of a pixel.
 constexpr float kBallTouchingThreshold = 0.1 / PIXELS_IN_METER;
 
 const Box2dData* getBodyUserData(const b2Body& body) {
@@ -34,6 +33,16 @@ const Box2dData* getBodyUserData(const b2Body& body) {
         "Found a Box2d body with userdata that is not Box2dData");
   }
   return box2d_data;
+}
+
+size_t getBodyId(const b2Body& body) {
+  const Box2dData* box2d_data = getBodyUserData(body);
+  return box2d_data->object_id;
+}
+
+Box2dData::ObjectType getBodyType(const b2Body& body) {
+  const Box2dData* box2d_data = getBodyUserData(body);
+  return box2d_data->object_type;
 }
 
 b2AABB getAbsoluteAABB(const b2AABB& aabb, const b2Vec2& bodyPos) {
@@ -309,17 +318,9 @@ bool isTwoBallTouchingCase(
   if (relationships[0] != ::task::SpatialRelationship::TOUCHING) return false;
   return true;
 }
+
 }  // namespace
 
-size_t getBodyId(const b2Body& body) {
-  const Box2dData* box2d_data = getBodyUserData(body);
-  return box2d_data->object_id;
-}
-
-Box2dData::ObjectType getBodyType(const b2Body& body) {
-  const Box2dData* box2d_data = getBodyUserData(body);
-  return box2d_data->object_type;
-}
 
 bool isValidRelationship(const b2Body& body1, const b2Body& body2,
                          const ::task::SpatialRelationship::type relationship,

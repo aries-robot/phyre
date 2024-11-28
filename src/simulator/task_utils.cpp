@@ -45,19 +45,30 @@ enum RelationshipType {
   NOT_INSIDE = 9
 };
 
-struct RelationshipData {
-  // timestep: 1/60 second for default (check task_utils.h)
-  // timestep -> object_i -> object_j -> vector of relationship numbers (touch or not)
-  std::vector<std::map<int, std::map<int, std::vector<bool>>>> timestep_relationships;
-  // timestep -> map(object_i -> {x, y, angle} in pixels)
-  std::vector<std::map<int, std::vector<float>>> timestep_positions_angles;
-  int num_general_objects;
-  int num_user_input_objects;
-};
-
 std::vector<::task::SpatialRelationship::type> touching_vector = {::task::SpatialRelationship::type::TOUCHING};
+// std::vector<::task::SpatialRelationship::type> relation_vector = {::task::SpatialRelationship::type::TOUCHING};
 
-constexpr float kBallTouchingThreshold = 0.1 / PIXELS_IN_METER;
+const Box2dData* getBodyUserData(const b2Body& body) {
+  if (body.GetUserData() == nullptr) {
+    throw std::runtime_error("Found a Box2d body without userdata");
+  }
+  const Box2dData* box2d_data = static_cast<Box2dData*>(body.GetUserData());
+  if (box2d_data == nullptr) {
+    throw std::runtime_error(
+        "Found a Box2d body with userdata that is not Box2dData");
+  }
+  return box2d_data;
+}
+
+size_t getBodyId(const b2Body& body) {
+  const Box2dData* box2d_data = getBodyUserData(body);
+  return box2d_data->object_id;
+}
+
+Box2dData::ObjectType getBodyType(const b2Body& body) {
+  const Box2dData* box2d_data = getBodyUserData(body);
+  return box2d_data->object_type;
+}
 
 bool isTwoBallTouchingCase(
     const ::scene::Body thriftBody1, const ::scene::Body& thriftBody2,
@@ -71,6 +82,18 @@ bool isTwoBallTouchingCase(
   return true;
 }
 
+bool isTouching(const b2Body& body1, const b2Body& body2) {
+  size_t body2Id = getBodyId(body2);
+  for (const b2ContactEdge* ce = body1.GetContactList(); ce; ce = ce->next) {
+    if (body2Id == getBodyId(*ce->other) &&
+        getBodyType(*ce->other) != Box2dData::USER &&
+        ce->contact->IsTouching()) {
+      return true;
+    }
+  }
+  return false;
+}
+
 void calculateAllRelationships(const ::task::Task& task, const b2WorldWithData& world, RelationshipData& result) {
   // std::vector<int> object_output_ids;
   int object_output_id1;
@@ -80,7 +103,9 @@ void calculateAllRelationships(const ::task::Task& task, const b2WorldWithData& 
   result.num_general_objects = bodies.size();
   result.num_user_input_objects = user_input_bodies.size();
 
-  // std::vector<std::vector<std::vector<int>>> current_timestep;
+  std::map<int, std::map<int, bool>> timestep_relationships_t;
+  std::map<int, std::vector<float>> timestep_positions_angles_t;
+
   const ::scene::Body* body1;
   const ::scene::Body* body2;
 
@@ -101,11 +126,12 @@ void calculateAllRelationships(const ::task::Task& task, const b2WorldWithData& 
       object_output_id1 = result.num_general_objects + box2d_data1->object_id;
       body1 = &user_input_bodies.at(box2d_data1->object_id);
     }
+
     // Push back positions and angles
     float x = m2p(box2dBody1->GetPosition().x);
     float y = m2p(box2dBody1->GetPosition().y);
     float angle = box2dBody1->GetAngle();
-    result.timestep_positions_angles.push_back(std::map<int, std::vector<float>>{{object_output_id1, {x, y, angle}}});
+    timestep_positions_angles_t[object_output_id1] = {x, y, angle};
 
     /// Get second body
     const b2Body* box2dBody2 = world.GetBodyList();
@@ -115,7 +141,7 @@ void calculateAllRelationships(const ::task::Task& task, const b2WorldWithData& 
       }
       const Box2dData* box2d_data2 = static_cast<Box2dData*>(box2dBody2->GetUserData());
       if (box2d_data2 == nullptr) {
-        throw std::runtime_error("Found a Box2d body with userdata that is not Box2dData");
+        throw std::runtime_error("Found a Box2d body with userdatbox2dBody2a that is not Box2dData");
       } 
       // Get output_id2 and body2
       if (box2d_data2->object_type == Box2dData::GENERAL) {
@@ -126,115 +152,42 @@ void calculateAllRelationships(const ::task::Task& task, const b2WorldWithData& 
         body2 = &user_input_bodies.at(box2d_data2->object_id);
       }
 
-      // Check if two balls are touching
+      // Check relationships
       if (isTwoBallTouchingCase(*body1, *body2, touching_vector)) {
-        const auto r1 = body1->shapes[0].circle.radius;
-        const auto r2 = body2->shapes[0].circle.radius;
-        const float distance = sqrt(
-            geometry::squareDistance(body1->position, body2->position));
+        // Check if two balls are touching
+        const auto r1 = box2dBody1->GetFixtureList()->GetShape()->m_radius;
+        const auto r2 = box2dBody2->GetFixtureList()->GetShape()->m_radius;
+        const float distance = sqrt(geometry::squareDistance(box2dBody1->GetPosition(), box2dBody2->GetPosition()));
         if (distance < r1 + r2 + kBallTouchingThreshold) {
-          std::map<int, std::map<int, std::vector<bool>>> timestep_map;
-          timestep_map[object_output_id1][object_output_id2] = {true};
-          result.timestep_relationships.push_back(timestep_map);
+          timestep_relationships_t[object_output_id1][object_output_id2] = true;
+        }
+        else {
+          timestep_relationships_t[object_output_id1][object_output_id2] = false;
         }
       }
       else {
         // Check other relationships
-      }
-    }
-
-
-  }
-
-
-
-
-
-
-  
-  // A custom check for a pair of touching balls to improve stability.
-  
-
-  ::scene::Shape scaledPhantomShape;
-  if (task.__isset.phantomShape && task.phantomShape.__isset.polygon) {
-    scaledPhantomShape = p2mShape(task.phantomShape);
-  }
-  
-  // For each pair of objects
-  for (size_t i = 0; i < bodies.size(); i++) {
-    std::vector<std::vector<int>> object_i_relationships;
-    for (size_t j = 0; j < bodies.size(); j++) {
-      if (i == j) {
-        object_i_relationships.push_back(std::vector<int>());
-        continue;
-      }
-      
-      const auto& body1 = bodies[i];
-      const auto& body2 = bodies[j];
-      std::vector<int> relationships;
-
-      // 특별한 경우 처리 - 두 공이 닿는 경우
-      bool isTwoBallCase = false;
-      if (body1.shapes.size() == 1 && body2.shapes.size() == 1 &&
-        body1.shapes[0].__isset.circle && body2.shapes[0].__isset.circle) {
-        isTwoBallCase = true;
-        
-        // Box2D world에서 현재 위치와 속성을 가져옴
-        const b2Body* b2body1 = world.bodies[i];
-        const b2Body* b2body2 = world.bodies[j];
-        
-        b2Vec2 pos1 = b2body1->GetPosition();
-        b2Vec2 pos2 = b2body2->GetPosition();
-        
-        float r1 = body1.shapes[0].circle.radius;
-        float r2 = body2.shapes[0].circle.radius;
-        float distance = (pos2 - pos1).Length();
-        
-        // TOUCHING 관계 확인
-        if (distance < r1 + r2 + kBallTouchingThreshold) {
-            relationships.push_back(TOUCHING);
+        if (isTouching(*box2dBody1, *box2dBody2)) {
+          timestep_relationships_t[object_output_id1][object_output_id2] = true;
         }
-        // NOT_TOUCHING 관계 확인
         else {
-            relationships.push_back(NOT_TOUCHING);
+          timestep_relationships_t[object_output_id1][object_output_id2] = false;
         }
       }
-      
-      // 일반적인 경우 처리
-      if (!isTwoBallCase) {
-
-
-        for (int rel = 1; rel <= 9; ++rel) {
-          auto relationship = static_cast<::task::SpatialRelationship::type>(rel);
-          
-          // INSIDE/NOT_INSIDE 관계는 phantomShape가 필요
-          if ((relationship == ::task::SpatialRelationship::INSIDE || 
-                relationship == ::task::SpatialRelationship::NOT_INSIDE) && 
-            !task.__isset.phantomShape) {
-            continue;
-          }
-          
-          // Box2D world의 현재 상태를 사용하여 관계 확인
-          if (isValidRelationship(world.bodies[i], world.bodies[j], relationship, task.phantomShape)) {
-            relationships.push_back(rel);
-          }
-        }
-      }
-      
-      object_i_relationships.push_back(relationships);
     }
-    current_timestep.push_back(object_i_relationships);
   }
-  result.timestep_relationships.push_back(current_timestep);
-  
-  return result;
+
+  // Push back timestep relationships and positions/angles
+  result.timestep_relationships.push_back(timestep_relationships_t);
+  result.timestep_positions_angles.push_back(timestep_positions_angles_t);
 }
 
 // Runs simulation for the scene. If task is not nullptr, is-task-solved checks
 // are performed.
-::task::TaskSimulation simulateTask(const ::scene::Scene &scene,
-                                    const SimulationRequest &request,
-                                    const ::task::Task *task) {
+std::tuple<::task::TaskSimulation, RelationshipData> simulateTaskInternal(const ::scene::Scene &scene,
+                                                                          const SimulationRequest &request,
+                                                                          const ::task::Task *task,
+                                                                          const bool is_calculate_relationships) {
   std::unique_ptr<b2WorldWithData> world = convertSceneToBox2dWorld(scene);
 
   unsigned int continuousSolvedCount = 0;
@@ -294,7 +247,9 @@ void calculateAllRelationships(const ::task::Task& task, const b2WorldWithData& 
     world->Step(kTimeStep, kVelocityIterations, kPositionIterations);
     if (request.stride > 0 && step % request.stride == 0) {
       scenes.push_back(updateSceneFromWorld(scene, *world));
-      calculateAllRelationships(*task, *world, relationshipData);
+      if (is_calculate_relationships) {
+        calculateAllRelationships(*task, *world, relationshipData);
+      }
     }
     if (task == nullptr) {
       solveStateList.push_back(false);
@@ -339,19 +294,25 @@ void calculateAllRelationships(const ::task::Task& task, const b2WorldWithData& 
     taskSimulation.__set_isSolution(solved);
   }
 
-  return taskSimulation;
+  return std::make_tuple(taskSimulation, relationshipData);
 }
 }  // namespace
 
 std::vector<::scene::Scene> simulateScene(const ::scene::Scene &scene,
                                           const int num_steps) {
   const SimulationRequest request{num_steps, 1};
-  const auto simulation = simulateTask(scene, request, /*task=*/nullptr);
-  return simulation.sceneList;
+  const auto simulation = simulateTaskInternal(scene, request, /*task=*/nullptr, /*is_calculate_relationships=*/false);
+  return std::get<0>(simulation).sceneList; 
 }
 
 ::task::TaskSimulation simulateTask(const ::task::Task &task,
-                                    const int num_steps, const int stride) {
+                                                      const int num_steps, const int stride) {
   const SimulationRequest request{num_steps, stride};
-  return simulateTask(task.scene, request, &task);
+  return std::get<0>(simulateTaskInternal(task.scene, request, &task, /*is_calculate_relationships=*/false));
+}
+
+std::tuple<::task::TaskSimulation, RelationshipData> simulateTaskRelationships(const ::task::Task &task,
+                                                      const int num_steps, const int stride) {
+  const SimulationRequest request{num_steps, stride};
+  return simulateTaskInternal(task.scene, request, &task, /*is_calculate_relationships=*/true);
 }

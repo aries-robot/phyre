@@ -52,6 +52,13 @@ action = random.choice(actions)
 # Set need_images=False and need_featurized_objects=False to speed up simulation, when only statuses are needed.
 simulation = simulator.simulate_action(task_index, action, need_images=True, need_featurized_objects=True)
 
+print(simulation.relationships.keys())
+print(simulation.relationships['num_general_objects'])
+print(simulation.relationships['num_user_input_objects'])
+print(simulation.relationships['timestep_relationships'][0])
+print(simulation.relationships['timestep_positions_angles'][0])
+exit()
+
 ### task_index = 0: 4 bounding boxes, 1 agent, 6 env objects (??)
 
 # Visualize

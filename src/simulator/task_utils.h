@@ -34,9 +34,22 @@ constexpr unsigned kStepsForSolution = 3 * kFps;
 // Default value for the miximum number of simulation steps.
 constexpr unsigned kMaxSteps = 1000;
 
+constexpr float PIXELS_IN_METER_ = 6.0; // copied from thrift_box2d_conversion.h
+constexpr float kBallTouchingThreshold = 0.1 / PIXELS_IN_METER_; // copied from task_validation.cpp
+
 // Runs simulation for num_steps and returns every scene.
 std::vector<::scene::Scene> simulateScene(const ::scene::Scene& scene,
                                           const int num_steps);
+
+struct RelationshipData {
+  // timestep: 1/60 second for default 
+  // timestep -> object_i -> object_j -> vector of relationship numbers (touch or not)
+  std::vector<std::map<int, std::map<int, bool>>> timestep_relationships;
+  // timestep -> map(object_i -> {x, y, angle} in pixels)
+  std::vector<std::map<int, std::vector<float>>> timestep_positions_angles;
+  int num_general_objects;
+  int num_user_input_objects;
+};
 
 // Runs simulation for at most num_steps. The sumlation is stopped earlier if
 // the task is in the solved state for at least kStepsForSolution steps.
@@ -44,6 +57,9 @@ std::vector<::scene::Scene> simulateScene(const ::scene::Scene& scene,
 // stride there is no guarantee that the last sscene in the solved state.
 ::task::TaskSimulation simulateTask(const ::task::Task& task,
                                     const int num_steps, const int stride = 1);
+
+std::tuple<::task::TaskSimulation, RelationshipData> simulateTaskRelationships(const ::task::Task& task,
+                                                    const int num_steps, const int stride = 1);
 
 // Run simulation in parallel using worker pool of num_workers processes.
 std::vector<::task::TaskSimulation> simulateTasksInParallel(

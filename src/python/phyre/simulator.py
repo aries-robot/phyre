@@ -239,8 +239,8 @@ def magic_ponies(task,
         height, width = task.scene.height, task.scene.width
     if isinstance(user_input, scene_if.UserInput):
         ### ARIES: this is the defalt running code in example
-        # is_solved, had_occlusions, packed_images, packed_featurized_objects, number_objects, sim_time, pack_time, relationships = (
-        is_solved, had_occlusions, packed_images, packed_featurized_objects, number_objects, sim_time, pack_time = (
+        is_solved, had_occlusions, packed_images, packed_featurized_objects, number_objects, sim_time, pack_time, relationships = (
+        # is_solved, had_occlusions, packed_images, packed_featurized_objects, number_objects, sim_time, pack_time = (
             simulator_bindings.magic_ponies_general(serialized_task,
                                                     serialize(user_input),
                                                     keep_space_around_bodies,
@@ -271,9 +271,9 @@ def magic_ponies(task,
     packed_featurized_objects = phyre.simulation.finalize_featurized_objects(
         packed_featurized_objects)
     if with_times:
-        return is_solved, had_occlusions, images, packed_featurized_objects, sim_time, pack_time
+        return is_solved, had_occlusions, images, packed_featurized_objects, sim_time, pack_time, relationships
     else:
-        return is_solved, had_occlusions, images, packed_featurized_objects
+        return is_solved, had_occlusions, images, packed_featurized_objects, relationships
 
 
 def batched_magic_ponies(tasks,

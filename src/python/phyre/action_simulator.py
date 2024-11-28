@@ -175,7 +175,7 @@ class ActionSimulator():
 
         if not need_images and not need_featurized_objects:
             stride = 100000
-        is_solved, had_occlusions, images, objects = phyre.simulator.magic_ponies(
+        is_solved, had_occlusions, images, objects, relationships = phyre.simulator.magic_ponies(
             serialzed_task,
             user_input,
             stride=stride,
@@ -196,7 +196,7 @@ class ActionSimulator():
         else:
             status = SimulationStatus.NOT_SOLVED
 
-        return status, images, objects
+        return status, images, objects, relationships
 
     def simulate_single(self,
                         task_index: int,
@@ -275,16 +275,17 @@ class ActionSimulator():
             return phyre.simulation.Simulation(
                 status=SimulationStatus.INVALID_INPUT)
 
-        main_status, images, objects = self._simulate_user_input(
+        main_status, images, objects, relationships = self._simulate_user_input(
             task_index, user_input, need_images, need_featurized_objects,
             stride)
         if not stable or not main_status.is_solved():
             return phyre.simulation.Simulation(status=main_status,
                                                images=images,
-                                               featurized_objects=objects)
+                                               featurized_objects=objects,
+                                               relationships=relationships)
 
         for modified_user_input in _yield_user_input_neighborhood(user_input):
-            status, _, _ = self._simulate_user_input(
+            status, _, _, relationships = self._simulate_user_input(
                 task_index,
                 modified_user_input,
                 need_images=False,
@@ -294,11 +295,13 @@ class ActionSimulator():
                 return phyre.simulation.Simulation(
                     status=SimulationStatus.UNSTABLY_SOLVED,
                     images=images,
-                    featurized_objects=objects)
+                    featurized_objects=objects,
+                    relationships=relationships)
         return phyre.simulation.Simulation(
             status=SimulationStatus.STABLY_SOLVED,
             images=images,
-            featurized_objects=objects)
+            featurized_objects=objects,
+            relationships=relationships)
 
 
 def _yield_user_input_neighborhood(base_user_input):

@@ -14,6 +14,7 @@
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
+#include <pybind11/pytypes.h>
 #include <chrono>
 #include <memory>
 #include <vector>
@@ -152,7 +153,10 @@ auto magic_ponies(const py::bytes &serialized_task, const UserInput &user_input,
   Task task = deserialize<Task>(serialized_task);
   addUserInputToScene(user_input, keep_space_around_bodies,
                       /*allow_occlusions=*/false, &task.scene);
-  auto simulation = simulateTask(task, steps, stride);
+  // auto simulation_with_relationships = simulateTask(task, steps, stride);
+  auto simulation_with_relationships = simulateTaskRelationships(task, steps, stride);
+  const auto simulation = std::get<0>(simulation_with_relationships);
+  const auto relationships_data = std::get<1>(simulation_with_relationships);
 
   const double simulation_seconds = timer.GetSeconds();
   const bool isSolved = simulation.isSolution;
@@ -172,21 +176,6 @@ auto magic_ponies(const py::bytes &serialized_task, const UserInput &user_input,
     }
   }
     
-  // Convert relationships to format suitable for Python
-  // py::list relationships_list;
-  // for (size_t t = 0; t < relationships_data.timestep_relationships.size(); t++) {
-  //     py::list timestep_list;
-  //     for (size_t i = 0; i < relationships_data.timestep_relationships[t].size(); i++) {
-  //         py::list object_i_list;
-  //         for (size_t j = 0; j < relationships_data.timestep_relationships[t][i].size(); j++) {
-  //             py::list relationship_numbers = py::cast(relationships_data.timestep_relationships[t][i][j]);
-  //             object_i_list.append(relationship_numbers);
-  //         }
-  //         timestep_list.append(object_i_list);
-  //     }
-  //     relationships_list.append(timestep_list);
-  // }
-
   const int numSceneObjects = getNumObjects(simulation);
   float *packedVectorizedBodies =
       new float[numSceneObjects * kObjectFeatureSize * numScenesTotal];
@@ -215,12 +204,41 @@ auto magic_ponies(const py::bytes &serialized_task, const UserInput &user_input,
       {numScenesTotal * numSceneObjects * kObjectFeatureSize},  // shape
       {sizeof(float)}, packedVectorizedBodies, freeObjectsWhenDone);
   const double pack_seconds = timer.GetSeconds();
-  // return std::make_tuple(isSolved, hadOcclusions, packedImagesArray,
-  //                        packedObjectsArray, numSceneObjects,
-  //                        simulation_seconds, pack_seconds, relationships_list);
+
+  // Convert relationships_data to Python dictionary
+  py::dict relationships_dict;
+  relationships_dict["num_general_objects"] = relationships_data.num_general_objects;
+  relationships_dict["num_user_input_objects"] = relationships_data.num_user_input_objects;
+  
+  // Convert timestep relationships
+  py::list timestep_relationships;
+  for (const auto& timestep : relationships_data.timestep_relationships) {
+    py::dict step_dict;
+    for (const auto& [obj_i, inner_map] : timestep) {
+      py::dict inner_dict;
+      for (const auto& [obj_j, relationship] : inner_map) {
+        inner_dict[py::int_(obj_j)] = relationship;
+      }
+      step_dict[py::int_(obj_i)] = inner_dict;
+    }
+    timestep_relationships.append(step_dict);
+  }
+  relationships_dict["timestep_relationships"] = timestep_relationships;
+
+  // Convert positions and angles
+  py::list timestep_positions;
+  for (const auto& timestep : relationships_data.timestep_positions_angles) {
+    py::dict pos_dict;
+    for (const auto& [obj_id, pos_angle] : timestep) {
+      pos_dict[py::int_(obj_id)] = py::cast(pos_angle);
+    }
+    timestep_positions.append(pos_dict);
+  }
+  relationships_dict["timestep_positions_angles"] = timestep_positions;
+  
   return std::make_tuple(isSolved, hadOcclusions, packedImagesArray,
                          packedObjectsArray, numSceneObjects,
-                         simulation_seconds, pack_seconds);
+                         simulation_seconds, pack_seconds, relationships_dict);
 }
 }  // namespace
 

@@ -108,14 +108,15 @@ class Simulation(object):
                  *,
                  status=None,
                  images: Optional[np.ndarray] = None,
-                 featurized_objects: Optional[np.ndarray] = None):
+                 featurized_objects: Optional[np.ndarray] = None,
+                 relationships=None):
         self.status = status
         self.images = images
         if featurized_objects is not None:
             self.featurized_objects = FeaturizedObjects(featurized_objects)
         else:
             self.featurized_objects = None
-
+        self.relationships = relationships
 
 class FeaturizedObjects():
     """Featurization of objects in a series of scene, such as from a simulation.

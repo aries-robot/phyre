@@ -36,16 +36,6 @@ const Box2dData* getBodyUserData(const b2Body& body) {
   return box2d_data;
 }
 
-size_t getBodyId(const b2Body& body) {
-  const Box2dData* box2d_data = getBodyUserData(body);
-  return box2d_data->object_id;
-}
-
-Box2dData::ObjectType getBodyType(const b2Body& body) {
-  const Box2dData* box2d_data = getBodyUserData(body);
-  return box2d_data->object_type;
-}
-
 b2AABB getAbsoluteAABB(const b2AABB& aabb, const b2Vec2& bodyPos) {
   b2AABB aabb_out;
   aabb_out.lowerBound = geometry::translatePoint(aabb.lowerBound, bodyPos);
@@ -292,27 +282,6 @@ bool isTouching(const b2Body& body1, const b2Body& body2) {
   return false;
 }
 
-bool isValidRelationship(const b2Body& body1, const b2Body& body2,
-                         const ::task::SpatialRelationship::type relationship,
-                         const ::scene::Shape& phantomShape) {
-  switch (relationship) {
-    case ::task::SpatialRelationship::TOUCHING:
-    case ::task::SpatialRelationship::TOUCHING_BRIEFLY:
-      return isTouching(body1, body2);
-    case ::task::SpatialRelationship::INSIDE:
-      return isInside(body1, body2, phantomShape);
-    case ::task::SpatialRelationship::NOT_TOUCHING:
-      return !isTouching(body1, body2);
-    case ::task::SpatialRelationship::NOT_INSIDE:
-      return !isInside(body1, body2, phantomShape);
-    case ::task::SpatialRelationship::NONE:
-      return false;
-    default:
-      return checkDirectionalRelationship(body1, body2, relationship);
-  }
-  return false;
-}
-
 void checkTaskValidity(const ::task::Task& task) {
   bool inside = false;
   for (auto r = task.relationships.begin(); r != task.relationships.end();
@@ -341,6 +310,37 @@ bool isTwoBallTouchingCase(
   return true;
 }
 }  // namespace
+
+size_t getBodyId(const b2Body& body) {
+  const Box2dData* box2d_data = getBodyUserData(body);
+  return box2d_data->object_id;
+}
+
+Box2dData::ObjectType getBodyType(const b2Body& body) {
+  const Box2dData* box2d_data = getBodyUserData(body);
+  return box2d_data->object_type;
+}
+
+bool isValidRelationship(const b2Body& body1, const b2Body& body2,
+                         const ::task::SpatialRelationship::type relationship,
+                         const ::scene::Shape& phantomShape) {
+  switch (relationship) {
+    case ::task::SpatialRelationship::TOUCHING: // same as TOUCHING_BRIEFLY
+    case ::task::SpatialRelationship::TOUCHING_BRIEFLY:
+      return isTouching(body1, body2);
+    case ::task::SpatialRelationship::INSIDE:
+      return isInside(body1, body2, phantomShape);
+    case ::task::SpatialRelationship::NOT_TOUCHING:
+      return !isTouching(body1, body2);
+    case ::task::SpatialRelationship::NOT_INSIDE:
+      return !isInside(body1, body2, phantomShape);
+    case ::task::SpatialRelationship::NONE:
+      return false;
+    default:
+      return checkDirectionalRelationship(body1, body2, relationship);
+  }
+  return false;
+}
 
 bool isTaskInSolvedState(const ::task::Task& task,
                          const b2WorldWithData& world) {

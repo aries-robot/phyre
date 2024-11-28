@@ -238,6 +238,8 @@ def magic_ponies(task,
         serialized_task = serialize(task)
         height, width = task.scene.height, task.scene.width
     if isinstance(user_input, scene_if.UserInput):
+        ### ARIES: this is the defalt running code in example
+        # is_solved, had_occlusions, packed_images, packed_featurized_objects, number_objects, sim_time, pack_time, relationships = (
         is_solved, had_occlusions, packed_images, packed_featurized_objects, number_objects, sim_time, pack_time = (
             simulator_bindings.magic_ponies_general(serialized_task,
                                                     serialize(user_input),
@@ -245,6 +247,7 @@ def magic_ponies(task,
                                                     steps, stride, need_images,
                                                     need_featurized_objects))
     else:
+        raise NotImplementedError("Not implemented")
         points, rectangulars, balls = _prepare_user_input(*user_input)
         is_solved, had_occlusions, packed_images, packed_featurized_objects, number_objects, sim_time, pack_time = (
             simulator_bindings.magic_ponies(serialized_task, points,

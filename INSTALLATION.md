@@ -29,27 +29,31 @@ pip install -e src/python
 If you want to install phyre into existing conda environment or would like to use a different version of python than 3.6, you can install the required dependecies manually. Below is an example for python 3.9. 
 
 ```(bash)
-conda create --yes -n phyre python=3.9
-source activate phyre
-conda install -c conda-forge sed nodejs=12 thrift-cpp=0.11.0 wget pybind11=2.6 cmake boost=1.75 setuptools pip --yes
-pip install matplotlib tqdm ipywidgets yapf==0.28.0
-
-git clone https://github.com/facebookresearch/phyre.git
-cd phyre
-pip install -v -e src/python
+### Deprecated
+# conda create --yes -n phyre python=3.9
+# source activate phyre
+# conda install -c conda-forge sed nodejs=12 thrift-cpp=0.11.0 wget pybind11=2.6 cmake boost=1.75 setuptools pip --yes
+# pip install matplotlib tqdm ipywidgets yapf==0.28.0
 ```
 
   To check that the installation was successful, run `python -m phyre.server` and open http://localhost:30303. That should start a local demo server.
 
- ## ARIES Update
+ ## ARIES update to install thrift dependency (Tested on Ubuntu 22.04, python 3.10)
+ - After activate conda environment
  ```(bach)
  sudo apt-get install npm
  sudo apt-get install libboost-program-options-dev
  sudo apt-get install libboost-all-dev
  sudo apt-get install python3-pybind11
+ pip install thrift==0.21.0
  ```
- - pip install thrift==0.21.0
- - git clone thrift -> checkout v0.21.0 -> make with ./configure CFLAGS=-fPIC CXXFLAGS=-fPIC -> install thrift
+ - After above: git clone thrift -> checkout v0.21.0 -> make with ./configure CFLAGS=-fPIC CXXFLAGS=-fPIC -> install thrift
+ ```(bash)
+ git clone https://github.com/aries-robot/phyre.git
+ cd phyre
+ # rm -rf cmake_build # if exists
+ pip install -v -e src/python
+ ```
 
  # Installation on Docker
 We provide a [Dockerfile](Dockerfile) that builds the package in a controlled environment that we used to convey all the experiments for the paper.

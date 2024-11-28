@@ -20,4 +20,13 @@
 bool isTaskInSolvedState(const ::task::Task& task,
                          const b2WorldWithData& world);
 
+bool isValidRelationship(const b2Body& body1, 
+                        const b2Body& body2,
+                        const ::task::SpatialRelationship::type relationship,
+                        const ::scene::Shape& phantomShape);
+
+size_t getBodyId(const b2Body& body);
+
+Box2dData::ObjectType getBodyType(const b2Body& body);  
+
 #endif  // TASK_VALIDATION_H

@@ -180,13 +180,14 @@ std::unique_ptr<b2WorldWithData> convertSceneToBox2dWorld_with_bounding_boxes(
     }
     if (box2d_data->object_type == Box2dData::BOUNDING_BOX) {
       // Bounding boxes do not present in the scene.
+      // This is required when BOUNDING_BOX (boundaries of the task space) exists. 
       continue;
     }
     auto& object_list = (box2d_data->object_type == Box2dData::GENERAL)
                             ? new_scene.bodies
                             : new_scene.user_input_bodies;
     ::scene::Body& body = object_list.at(box2d_data->object_id);
-    body.position.__set_x(m2p(box2dBody->GetPosition().x));
+    body.position.__set_x(m2p(box2dBody->GetPosition().x)); // m2p: meters to pixels
     body.position.__set_y(m2p(box2dBody->GetPosition().y));
     body.__set_angle(box2dBody->GetAngle());
   }

@@ -319,7 +319,7 @@ class Body(object):
 
         ball = Body(...).set_color('red').set_top(0)
         box = Body(...).set_color('blue').set_bottom(ball.top + 10)
-        box2 = Body(...).set(color='blue', bottom=ball.top + 10)
+        box2 = Body(...).set(color='blue', bottom=ball.Bodyop + 10)
 
     Body also carries meta information about object type, that doesn't exist
     in the interface file (only high level object type data is stored). The

@@ -171,6 +171,21 @@ auto magic_ponies(const py::bytes &serialized_task, const UserInput &user_input,
       writeIndex += imageSize;
     }
   }
+    
+  // Convert relationships to format suitable for Python
+  // py::list relationships_list;
+  // for (size_t t = 0; t < relationships_data.timestep_relationships.size(); t++) {
+  //     py::list timestep_list;
+  //     for (size_t i = 0; i < relationships_data.timestep_relationships[t].size(); i++) {
+  //         py::list object_i_list;
+  //         for (size_t j = 0; j < relationships_data.timestep_relationships[t][i].size(); j++) {
+  //             py::list relationship_numbers = py::cast(relationships_data.timestep_relationships[t][i][j]);
+  //             object_i_list.append(relationship_numbers);
+  //         }
+  //         timestep_list.append(object_i_list);
+  //     }
+  //     relationships_list.append(timestep_list);
+  // }
 
   const int numSceneObjects = getNumObjects(simulation);
   float *packedVectorizedBodies =
@@ -200,6 +215,9 @@ auto magic_ponies(const py::bytes &serialized_task, const UserInput &user_input,
       {numScenesTotal * numSceneObjects * kObjectFeatureSize},  // shape
       {sizeof(float)}, packedVectorizedBodies, freeObjectsWhenDone);
   const double pack_seconds = timer.GetSeconds();
+  // return std::make_tuple(isSolved, hadOcclusions, packedImagesArray,
+  //                        packedObjectsArray, numSceneObjects,
+  //                        simulation_seconds, pack_seconds, relationships_list);
   return std::make_tuple(isSolved, hadOcclusions, packedImagesArray,
                          packedObjectsArray, numSceneObjects,
                          simulation_seconds, pack_seconds);

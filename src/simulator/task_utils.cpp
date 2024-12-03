@@ -86,7 +86,6 @@ bool isTouching(const b2Body& body1, const b2Body& body2) {
   size_t body2Id = getBodyId(body2);
   for (const b2ContactEdge* ce = body1.GetContactList(); ce; ce = ce->next) {
     if (body2Id == getBodyId(*ce->other) &&
-        getBodyType(*ce->other) != Box2dData::USER &&
         ce->contact->IsTouching()) {
       return true;
     }
@@ -153,7 +152,10 @@ void calculateAllRelationships(const ::task::Task& task, const b2WorldWithData& 
       }
 
       // Check relationships
-      if (isTwoBallTouchingCase(*body1, *body2, touching_vector)) {
+      if (object_output_id1 == object_output_id2){
+        timestep_relationships_t[object_output_id1][object_output_id2] = false;
+      }
+      else if (isTwoBallTouchingCase(*body1, *body2, touching_vector)) {
         // Check if two balls are touching
         const auto r1 = box2dBody1->GetFixtureList()->GetShape()->m_radius;
         const auto r2 = box2dBody2->GetFixtureList()->GetShape()->m_radius;
@@ -198,7 +200,8 @@ std::tuple<::task::TaskSimulation, RelationshipData> simulateTaskInternal(const 
   
   RelationshipData relationshipData;
   
-  if (false) { // debug
+  // Debug
+  if (false) { 
     int num_objects = scene.bodies.size();
     int num_user_input_objects = scene.user_input_bodies.size();
 
@@ -244,8 +247,13 @@ std::tuple<::task::TaskSimulation, RelationshipData> simulateTaskInternal(const 
   for (; step < request.maxSteps; step++) {
     // Instruct the world to perform a single step of simulation.
     // It is generally best to keep the time step and iterations fixed.
+
+    // printf("step/maxSteps: %d/%d\n", step, request.maxSteps);
+    // printf("stride: %d\n", request.stride);
+    // printf("step %% stride: %d\n", step % request.stride);
+
     world->Step(kTimeStep, kVelocityIterations, kPositionIterations);
-    if (request.stride > 0 && step % request.stride == 0) {
+    if (request.stride > 0 && step % request.stride == 0) { // default stride = FPS = 60
       scenes.push_back(updateSceneFromWorld(scene, *world));
       if (is_calculate_relationships) {
         calculateAllRelationships(*task, *world, relationshipData);

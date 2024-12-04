@@ -239,7 +239,8 @@ def magic_ponies(task,
         height, width = task.scene.height, task.scene.width
     if isinstance(user_input, scene_if.UserInput):
         ### ARIES: this is the defalt running code in example
-        is_solved, had_occlusions, packed_images, packed_featurized_objects, number_objects, sim_time, pack_time, relationships = (
+        is_solved, had_occlusions, packed_images, packed_featurized_objects, number_objects, sim_time, pack_time, \
+        relationships, packed_images_ids = (
         # is_solved, had_occlusions, packed_images, packed_featurized_objects, number_objects, sim_time, pack_time = (
             simulator_bindings.magic_ponies_general(serialized_task,
                                                     serialize(user_input),
@@ -259,6 +260,7 @@ def magic_ponies(task,
     packed_images = np.array(packed_images, dtype=np.uint8)
 
     images = packed_images.reshape((-1, height, width))
+    packed_images_ids = packed_images_ids.reshape((-1, height, width))
     packed_featurized_objects = np.array(packed_featurized_objects,
                                          dtype=np.float32)
     if packed_featurized_objects.size == 0:
@@ -271,9 +273,9 @@ def magic_ponies(task,
     packed_featurized_objects = phyre.simulation.finalize_featurized_objects(
         packed_featurized_objects)
     if with_times:
-        return is_solved, had_occlusions, images, packed_featurized_objects, sim_time, pack_time, relationships
+        return is_solved, had_occlusions, images, packed_featurized_objects, sim_time, pack_time, relationships, packed_images_ids
     else:
-        return is_solved, had_occlusions, images, packed_featurized_objects, relationships
+        return is_solved, had_occlusions, images, packed_featurized_objects, relationships, packed_images_ids
 
 
 def batched_magic_ponies(tasks,

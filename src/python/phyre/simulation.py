@@ -109,7 +109,8 @@ class Simulation(object):
                  status=None,
                  images: Optional[np.ndarray] = None,
                  featurized_objects: Optional[np.ndarray] = None,
-                 relationships=None):
+                 relationships=None,
+                 images_ids=None):
         self.status = status
         self.images = images
         if featurized_objects is not None:
@@ -117,7 +118,8 @@ class Simulation(object):
         else:
             self.featurized_objects = None
         self.relationships = relationships
-
+        self.images_ids = images_ids
+        
 class FeaturizedObjects():
     """Featurization of objects in a series of scene, such as from a simulation.
     Returned by either ActionSimulator.intial_featurized_objects, or 

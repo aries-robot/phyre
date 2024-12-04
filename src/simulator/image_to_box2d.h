@@ -70,6 +70,7 @@ inline std::vector<::scene::Body> mergeUserInputIntoScene(
 // Renders scene and user bodies from the scene. The buffer has to have at
 // least scene.width * scene.height elements.
 void renderTo(const ::scene::Scene& scene, uint8_t* buffer);
+void renderToId(const ::scene::Scene& scene, int8_t* buffer);
 
 bool isPointInsideBody(const ::scene::Vector& pPoint,
                        const ::scene::Body& pBody);

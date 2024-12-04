@@ -127,6 +127,74 @@ void fillConvexPoly(const std::vector<Vector>& v, const T color,
   }
 }
 
+template <class Vector, class T>
+void fillConvexPolyId(const std::vector<Vector>& v, const int8_t id,
+                    Array2d<T>* array) {
+  struct Edge {
+    Vector start, end;
+  };
+
+  std::vector<Edge> leftEdges, rightEdges;
+  for (size_t i = 0; i < v.size(); ++i) {
+    size_t prev = i == 0 ? v.size() - 1 : i - 1;
+    if (std::abs(v[i].y - v[prev].y) < 1e-3) {
+      continue;
+    }
+    if (v[prev].y < v[i].y) {
+      Edge edge{v[prev], v[i]};
+      rightEdges.push_back(edge);
+    } else {
+      Edge edge{v[i], v[prev]};
+      leftEdges.push_back(edge);
+    }
+  }
+
+  const auto width = array->width;
+  const auto height = array->height;
+  if (leftEdges.empty() || rightEdges.empty()) return;
+
+  std::sort(leftEdges.begin(), leftEdges.end(),
+            [](const Edge& lhs, const Edge& rhs) {
+              return lhs.start.y < rhs.start.y;
+            });
+  std::sort(rightEdges.begin(), rightEdges.end(),
+            [](const Edge& lhs, const Edge& rhs) {
+              return lhs.start.y < rhs.start.y;
+            });
+  int leftActive = 0, rightActive = 0;
+
+  auto cmpY = [](const Vector& lhs, const Vector& rhs) {
+    return lhs.y < rhs.y;
+  };
+
+  const float polygonMinY = std::min_element(v.begin(), v.end(), cmpY)->y;
+  const float polygonMaxY = std::max_element(v.begin(), v.end(), cmpY)->y;
+  const int drawStartY = std::max<int>(0, std::lrint(polygonMinY));
+  const int drawEndY = std::min<int>(height, std::lrint(polygonMaxY));
+
+  auto getX = [](const Edge& edge, float y) {
+    const float alpha = (y - edge.start.y) / (edge.end.y - edge.start.y);
+    return alpha * (edge.end.x - edge.start.x) + edge.start.x;
+  };
+
+  for (int y = drawStartY; y < drawEndY; ++y) {
+    while (leftActive + 1 < leftEdges.size() &&
+           leftEdges[leftActive].end.y < y + 0.5)
+      ++leftActive;
+    while (rightActive + 1 < rightEdges.size() &&
+           rightEdges[rightActive].end.y < y + 0.5)
+      ++rightActive;
+    const float leftX = getX(leftEdges[leftActive], y + 0.5);
+    const float rightX = getX(rightEdges[rightActive], y + 0.5);
+    const int leftXInt = std::max<int>(0, std::lrint(leftX));
+    const int rightXInt = std::min<int>(width, std::lrint(rightX));
+    if (leftXInt < rightXInt) {
+      auto start = array->data + y * width;
+      std::fill(&start[leftXInt], &start[rightXInt], id);
+    }
+  }
+}
+
 template <class T>
 inline void recomputeLeftRight(const float radius_squared, const int y,
                                const float center_x, const float center_y,
@@ -148,6 +216,26 @@ inline void recomputeLeftRight(const float radius_squared, const int y,
 }
 
 template <class T>
+inline void recomputeLeftRightId(const float radius_squared, const int y,
+                                 const float center_x, const float center_y,
+                                 const int8_t id, int* left, int* right,
+                                 Array2d<T>* array) {
+  auto sq = [](float x) { return x * x; };
+
+  const float residual = radius_squared - sq(y - center_y);
+  while (sq(*left - center_x) <= residual) *left -= 1;
+  while (sq(*right - center_x) <= residual) *right += 1;
+
+  const int left_int = std::max<int>(0, *left + 1);
+  const int right_int = std::min<int>(array->width - 1, *right - 1);
+
+  if (left_int <= right_int && 0 <= y && y < array->height) {
+    std::fill_n(array->data + y * array->width + left_int,
+                right_int - left_int + 1, id);
+  }
+}
+
+template <class T>
 void draw_circle(float center_x, float center_y, float radius, uint8_t color,
                  Array2d<T>* array) {
   center_x -= 0.5;
@@ -164,6 +252,28 @@ void draw_circle(float center_x, float center_y, float radius, uint8_t color,
     int left = center_x, right = center_x;
     for (int y = center_y - radius; y < center_y; ++y) {
       recomputeLeftRight(radius_squared, y, center_x, center_y, color, &left,
+                         &right, array);
+    }
+  }
+}
+
+template <class T>
+void draw_circle_Id(float center_x, float center_y, float radius, int8_t id,
+                 Array2d<T>* array) {
+  center_x -= 0.5;
+  center_y -= 0.5;
+  const float radius_squared = radius * radius;
+  {
+    int left = center_x, right = center_x;
+    for (int y = center_y + radius + 1; y >= center_y; --y) {
+      recomputeLeftRightId(radius_squared, y, center_x, center_y, id, &left,
+                         &right, array);
+    }
+  }
+  {
+    int left = center_x, right = center_x;
+    for (int y = center_y - radius; y < center_y; ++y) {
+      recomputeLeftRightId(radius_squared, y, center_x, center_y, id, &left,
                          &right, array);
     }
   }
@@ -205,6 +315,63 @@ void renderSceneBodies(const std::vector<Body>& bodies, int height, int width,
       }
     }
   }
+}
+
+// Renders user bodies into an Image.
+template <class T>
+void renderSceneBodiesId(const std::vector<Body>& bodies, 
+                         const std::vector<int8_t>& bodies_ids, 
+                         int height, int width,
+                         T* data) {
+  std::fill_n(data, width * height, -1);
+  Array2d<T> array = {data, width, height};
+
+  for (size_t i = 0; i < bodies.size(); ++i) {
+    const Body& body = bodies[i];
+    const int8_t id = bodies_ids[i];
+    // printf("id: %d\n", id);
+    for (const ::scene::Shape& shape : body.shapes) {
+      
+      if (shape.__isset.polygon == true) {
+
+        const int offset = 5.0; // 1.0 for one pixel
+        ::scene::Vector new_body_position = body.position;
+        if (id >= 0 && id < 4) {
+          // Bottom
+          if (body.position.x > 0 && body.position.y < 0) {
+            new_body_position.y += offset;
+          }
+          // Left
+          else if (body.position.x < 0 && body.position.y > 0) {
+            new_body_position.x += offset;
+          }
+          // Top
+          else if (body.position.x > 0 && body.position.y > 0 && body.position.y > body.position.x) {
+            new_body_position.y -= offset;
+          }
+          // Right
+          else if (body.position.x > 0 && body.position.y > 0 && body.position.y < body.position.x) {
+            new_body_position.x -= offset;
+          }
+        }
+        // printf("polygon\n");
+        // printf("body.position: %f, %f\n", body.position.x, body.position.y);
+        // printf("body.angle: %f\n", body.angle);
+        // printf("new_body_position: %f, %f\n", new_body_position.x, new_body_position.y);
+        const auto vertices = getAbsolutePolygon(shape.polygon.vertices,
+                                                 new_body_position, body.angle);
+        fillConvexPolyId(vertices, id, &array);
+      } else if (shape.__isset.circle == true) {
+        draw_circle_Id(body.position.x, body.position.y, shape.circle.radius,
+                      id, &array);
+      } else {
+        // Siliently ignore.
+      }
+    }
+  }
+
+  // exit(0);
+
 }
 
 bool doesBallOccludeBody(const ::scene::CircleWithPosition& ball,
@@ -290,6 +457,26 @@ void renderTo(const ::scene::Scene& scene, uint8_t* buffer) {
   bodies.insert(bodies.end(), scene.user_input_bodies.begin(),
                 scene.user_input_bodies.end());
   renderSceneBodies(bodies, scene.height, scene.width, buffer);
+}
+
+void renderToId(const ::scene::Scene& scene, int8_t* buffer) {
+  std::vector<Body> bodies = scene.bodies;
+  bodies.insert(bodies.end(), scene.user_input_bodies.begin(),
+                scene.user_input_bodies.end());
+
+  std::vector<int8_t> bodies_ids{};
+  for (int8_t i = 0; i < bodies.size(); ++i) {
+    bodies_ids.push_back(i);
+  }
+
+  // std::string body_ids_str;
+  // for (int id : body_ids) {
+  //   body_ids_str += std::to_string(id) + " ";
+  // }
+  // printf("body_ids: %s\n", body_ids_str.c_str());
+  // exit(0);
+
+  renderSceneBodiesId(bodies, bodies_ids, scene.height, scene.width, buffer);
 }
 
 bool isPointInsideBody(const ::scene::Vector& pPoint, const Body& pBody) {

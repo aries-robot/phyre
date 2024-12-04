@@ -1,11 +1,11 @@
 import math
 import random
 
+import sys
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from matplotlib import gridspec
 import numpy as np
-
 import networkx as nx
 
 import phyre
@@ -33,7 +33,7 @@ print('Action tier for', eval_setup, 'is', action_tier) # ball
 # Create the simulator from the tasks and tier.
 simulator = phyre.initialize_simulator(new_tasks, action_tier)
 
-task_index = 0  # task 00000:000
+# task_index = 0  # task 00000:000
 # task_id = simulator.task_ids[task_index]
 # initial_scene = simulator.initial_scenes[task_index]
 # print('Initial scene shape=%s dtype=%s' % (initial_scene.shape, initial_scene.dtype))
@@ -45,13 +45,27 @@ task_index = 0  # task 00000:000
 # print(initial_featurized_objects.features)
 
 # print('Dimension of the action space:', simulator.action_space_dim)
-import networkx as nx
 actions = simulator.build_discrete_action_space(max_actions=100)
 print('A random action:', actions[0])
 
-task_index = 0  # The simulator takes an index into simulator.task_ids.
+task_index = 0  # The simulator takes an index into simulator.task_ids. (task 00000:000)
 action = random.choice(actions)
-simulation = simulator.simulate_action(task_index, action, need_images=True, need_featurized_objects=True, stride=1) # default stride is 60
+simulation = simulator.simulate_action(task_index, action, need_images=True, need_featurized_objects=True, stride=60) # default stride is 60
+
+def reshape_images_ids(images_ids, timestep):
+    new_images_ids = images_ids[timestep][::-1]
+    return new_images_ids
+
+if False:
+    timestep = -1
+    plt.figure(figsize=(10, 10))
+    plt.imshow(reshape_images_ids(simulation.images_ids, timestep), cmap='tab10', interpolation='nearest')
+    plt.colorbar(label="Index Value")
+    plt.title('Object IDs in Simulation\n(-1: background, 0-3: walls, 4+: objects)')
+    plt.axis('on')
+    plt.grid(True)
+    plt.show()
+    exit()
 
 total_timesteps = len(simulation.relationships['timestep_relationships'])
 num_objects = simulation.relationships['num_general_objects'] + simulation.relationships['num_user_input_objects']
@@ -62,12 +76,63 @@ for t, relationship in enumerate(simulation.relationships['timestep_relationship
         for j in relationship[i].keys():
             relationships_array[t, i, j] = relationship[i][j]
 
-relationships_changed = relationships_array[0]
+relationships_changed = [relationships_array[0]]
 relationships_changed_timesteps_idx = [0]
 for t in range(1, total_timesteps):
-    if not np.all(relationships_changed == relationships_array[t]):
-        relationships_changed = relationships_array[t]
+    if not np.all(relationships_changed[-1] == relationships_array[t]):
+        relationships_changed.append(relationships_array[t])
         relationships_changed_timesteps_idx.append(t)
+
+### Filter the relationships changed timesteps
+if False:
+    relationships_changed_timesteps_filtered_idx = []
+    relationships_changed_filtered = []
+
+    idx = 0
+    while idx < len(relationships_changed_timesteps_idx) - 1:
+        current_timestep = relationships_changed_timesteps_idx[idx]
+        next_timestep = relationships_changed_timesteps_idx[idx + 1]
+
+        ### Check if this is the start of a consecutive sequence
+        if next_timestep - current_timestep == 1:
+
+            ### Find the end of the consecutive sequence
+            end_idx = idx + 1
+            while end_idx < len(relationships_changed_timesteps_idx) - 1:
+                current_timestep_end_idx = relationships_changed_timesteps_idx[end_idx]
+                next_timestep_end_idx = relationships_changed_timesteps_idx[end_idx + 1]
+                if next_timestep_end_idx - current_timestep_end_idx != 1:
+                    break
+                end_idx += 1
+
+            ### Take only the first timestep of the sequence
+            relationships_changed_timesteps_filtered_idx.append(relationships_changed_timesteps_idx[idx])
+
+            ### Perform logical OR on the sequence of relationships
+            combined_relationship = relationships_changed[idx]
+            # seq_idx_list = [idx] # debug
+            # overlap_list = [relationships_changed_timesteps_idx[idx]] # debug
+            for seq_idx in range(idx + 1, end_idx + 1):
+                # seq_idx_list.append(seq_idx) # debug
+                # overlap_list.append(relationships_changed_timesteps_idx[seq_idx]) # debug
+                combined_relationship = np.logical_or(combined_relationship, relationships_changed[seq_idx])
+            relationships_changed_filtered.append(combined_relationship)
+            # print('seq_idx_list:', seq_idx_list)
+            # print('overlap_list:', overlap_list)
+
+            ### Skip to the end of the sequence
+            idx = end_idx + 1
+
+        else:
+            ### If not consecutive, add the current timestep
+            relationships_changed_timesteps_filtered_idx.append(relationships_changed_timesteps_idx[idx])
+            relationships_changed_filtered.append(relationships_changed[idx])
+            idx += 1
+
+    ### Add the last timestep if we haven't processed it
+    if idx == len(relationships_changed_timesteps_idx) - 1:
+        relationships_changed_timesteps_filtered_idx.append(relationships_changed_timesteps_idx[idx])
+        relationships_changed_filtered.append(relationships_changed[idx])
 
 ### Animate the relationship graph
 if False:
@@ -134,62 +199,67 @@ if False:
 
 ### Plot the relationship graph for all the changed timesteps
 elif True:
-    changed_timesteps = relationships_changed_timesteps_idx
-    print(f"Plotting graphs for {len(changed_timesteps)} timesteps where relationships changed")
+    timesteps_idx = relationships_changed_timesteps_idx
+    relationships = relationships_changed
 
-    # Determine the number of rows needed for the grid
-    num_plots = len(changed_timesteps)
-    cols = 6  # One column for images, one for graphs
-    rows = (num_plots + cols - 1) // cols  # Calculate the number of rows needed
+    print(f"Plotting graphs for {len(timesteps_idx)} timesteps where relationships changed")
 
-    # Create a figure with nested gridspec for layout
-    fig = plt.figure(figsize=(20, 5 * (rows + 1)))
+    ### Determine the number of rows needed for the grid
+    num_plots = len(timesteps_idx)
+    cols = 6  # Six columns for each section
+    rows = (num_plots + cols - 1) // cols
 
-    # Create outer grid with 2 columns
-    outer_grid = gridspec.GridSpec(1, 2, figure=fig)
+    ### Create figure with nested gridspec for layout
+    fig = plt.figure(figsize=(30, 1 * (rows + 1)))  # Increased figure width
 
-    # Create two inner grids, each with rows x 6 layout
+    ### Create outer grid with 3 columns now
+    outer_grid = gridspec.GridSpec(1, 3, figure=fig)
+
+    ### Create three inner grids, each with rows x 6 layout
     left_inner_grid = gridspec.GridSpecFromSubplotSpec(rows, 6, subplot_spec=outer_grid[0])
-    right_inner_grid = gridspec.GridSpecFromSubplotSpec(rows, 6, subplot_spec=outer_grid[1])
+    center_inner_grid = gridspec.GridSpecFromSubplotSpec(rows, 6, subplot_spec=outer_grid[1])
+    right_inner_grid = gridspec.GridSpecFromSubplotSpec(rows, 6, subplot_spec=outer_grid[2])
 
-    # Plot all simulation images on the left and all relationship graphs on the right
-    for idx, timestep in enumerate(changed_timesteps):
-        # Calculate row and column position
+    ### Plot all visualizations
+    for idx, (timestep, relationship_t) in enumerate(zip(timesteps_idx, relationships)):
         row = idx // 6
         col = idx % 6
         
-        # Plot simulation image
-        ax_img = fig.add_subplot(left_inner_grid[row, col])
+        ### Plot simulation image (left)
+        ax_img = fig.add_subplot(left_inner_grid[row, col], aspect='equal')
         ax_img.imshow(phyre.vis.observations_to_float_rgb(simulation.images[timestep]))
         ax_img.text(0.5, 0.9, f't={timestep}', 
                    horizontalalignment='center',
                    transform=ax_img.transAxes)
-        # Remove ticks and labels
         ax_img.set_xticks([])
         ax_img.set_yticks([])
         ax_img.set_title('')
+
+        ### Plot object IDs (center)
+        ax_ids = fig.add_subplot(center_inner_grid[row, col])
+        im = ax_ids.imshow(reshape_images_ids(simulation.images_ids, timestep), # wall: bottom0, left1, top2, right3
+                           cmap='tab10', 
+                           interpolation='nearest')
+        ax_ids.text(0.5, 0.9, f't={timestep}', 
+                   horizontalalignment='center',
+                   transform=ax_ids.transAxes)
+        ax_ids.set_xticks([])
+        ax_ids.set_yticks([])
+        ax_ids.set_title('')
         
-        # Plot relationship graph
-        ax_graph = fig.add_subplot(right_inner_grid[row, col])
+        ### Plot relationship graph (right)
+        ax_graph = fig.add_subplot(right_inner_grid[row, col], aspect='equal')  # Force equal aspect ratio
         G = nx.Graph()
-        num_objects = relationships_array.shape[1]
+        num_objects = relationship_t.shape[1]
         G.add_nodes_from(range(num_objects))
         
-        # Add labels for nodes
-        labels = {}
-        for i in range(num_objects):
-            if i < 4:
-                labels[i] = f'{i}'
-            else:
-                labels[i] = f'{i}'
+        labels = {i: f'{i}' for i in range(num_objects)}
         
-        # Add edges
         for i in range(num_objects):
             for j in range(i+1, num_objects):
-                if relationships_array[timestep, i, j]:
+                if relationship_t[i, j]:
                     G.add_edge(i, j)
         
-        # Adjust the y-coordinate of each node position to move the graph down
         pos = nx.kamada_kawai_layout(G)
 
         nx.draw(G, pos,
@@ -202,17 +272,23 @@ elif True:
                 edge_color='gray',
                 width=2)
         
+        # Set equal limits and force square shape
+        ax_graph.set_xlim(-1.2, 1.2)
+        ax_graph.set_ylim(-1.2, 1.2)
+        ax_graph.set_aspect('equal', adjustable='box')
+        
         ax_graph.set_title('')
-        ax_graph.text(0.15, 0.0, f't={timestep}', # 0.5, 0.9
+        ax_graph.text(0.15, 0.0, f't={timestep}',
                      horizontalalignment='center',
                      transform=ax_graph.transAxes)
-        ax_graph.axis('on')  # Show the axes
+        ax_graph.axis('on')
         
-    # Hide any unused subplots
+    ### Hide unused subplots
     for idx in range(num_plots, rows * 6):
         row = idx // 6
         col = idx % 6
         fig.add_subplot(left_inner_grid[row, col]).axis('off')
+        fig.add_subplot(center_inner_grid[row, col]).axis('off')
         fig.add_subplot(right_inner_grid[row, col]).axis('off')
 
     plt.tight_layout()
@@ -221,9 +297,7 @@ elif True:
     exit()
 
 
-
 ###########################################################
-
 
 
 def plot_relationship_graph_custom(relationships_array, timestep):

@@ -45,8 +45,8 @@ enum RelationshipType {
   NOT_INSIDE = 9
 };
 
-std::vector<::task::SpatialRelationship::type> touching_vector = {::task::SpatialRelationship::type::TOUCHING};
-// std::vector<::task::SpatialRelationship::type> relation_vector = {::task::SpatialRelationship::type::TOUCHING};
+const std::vector<::task::SpatialRelationship::type> touching_vector = {::task::SpatialRelationship::type::TOUCHING};
+// const std::vector<::task::SpatialRelationship::type> relation_vector = {::task::SpatialRelationship::type::TOUCHING};
 
 const Box2dData* getBodyUserData(const b2Body& body) {
   if (body.GetUserData() == nullptr) {
@@ -117,6 +117,7 @@ void calculateAllRelationships(const ::task::Task& task, const b2WorldWithData& 
     if (box2d_data1 == nullptr) {
       throw std::runtime_error("Found a Box2d body with userdata that is not Box2dData");
     }
+
     // Get output_id1 and body1 (general idx => 0, 1, 2, ...; user_input idx => num_general_objects + 0, num_general_objects + 1, ...;)
     if (box2d_data1->object_type == Box2dData::GENERAL) {
       object_output_id1 = box2d_data1->object_id;
@@ -132,7 +133,7 @@ void calculateAllRelationships(const ::task::Task& task, const b2WorldWithData& 
     float angle = box2dBody1->GetAngle();
     timestep_positions_angles_t[object_output_id1] = {x, y, angle};
 
-    /// Get second body
+    // Get second body
     const b2Body* box2dBody2 = world.GetBodyList();
     for (; box2dBody2 != nullptr; box2dBody2 = box2dBody2->GetNext()) {
       if (box2dBody2->GetUserData() == nullptr) {
@@ -153,7 +154,7 @@ void calculateAllRelationships(const ::task::Task& task, const b2WorldWithData& 
 
       // Check relationships
       if (object_output_id1 == object_output_id2){
-        timestep_relationships_t[object_output_id1][object_output_id2] = false;
+        timestep_relationships_t[object_output_id1][object_output_id2] = false; // No self-relationships
       }
       else if (isTwoBallTouchingCase(*body1, *body2, touching_vector)) {
         // Check if two balls are touching
@@ -269,7 +270,7 @@ std::tuple<::task::TaskSimulation, RelationshipData> simulateTaskInternal(const 
           if (continuousSolvedCount >= kStepsForSolution ||
               allowInstantSolution) {
             solved = true;
-            break;
+            // break; // keep running after solution is found
           }
         }
       } else {

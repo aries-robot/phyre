@@ -168,10 +168,12 @@ auto magic_ponies(const py::bytes &serialized_task, const UserInput &user_input,
 
   const int imageSize = task.scene.width * task.scene.height;
   uint8_t *packedImages = new uint8_t[imageSize * numImagesTotal];
+  int8_t *packedImagesIds = new int8_t[imageSize * numImagesTotal];
   if (numImagesTotal > 0) {
     int writeIndex = 0;
     for (const Scene &scene : simulation.sceneList) {
       renderTo(scene, packedImages + writeIndex);
+      renderToId(scene, packedImagesIds + writeIndex);
       writeIndex += imageSize;
     }
   }
@@ -193,6 +195,10 @@ auto magic_ponies(const py::bytes &serialized_task, const UserInput &user_input,
     auto *foo = reinterpret_cast<uint8_t *>(f);
     delete[] foo;
   });
+  py::capsule freeImagesIdsWhenDone(packedImagesIds, [](void *f) {
+    auto *foo = reinterpret_cast<int8_t *>(f);
+    delete[] foo;
+  });
   py::capsule freeObjectsWhenDone(packedVectorizedBodies, [](void *f) {
     auto *foo = reinterpret_cast<float *>(f);
     delete[] foo;
@@ -200,6 +206,9 @@ auto magic_ponies(const py::bytes &serialized_task, const UserInput &user_input,
   auto packedImagesArray =
       py::array_t<uint8_t>({numImagesTotal * imageSize},  // shape
                            {sizeof(uint8_t)}, packedImages, freeImagesWhenDone);
+  auto packedImagesIdsArray =
+      py::array_t<int8_t>({numImagesTotal * imageSize},  // shape
+                           {sizeof(int8_t)}, packedImagesIds, freeImagesIdsWhenDone);
   auto packedObjectsArray = py::array_t<float>(
       {numScenesTotal * numSceneObjects * kObjectFeatureSize},  // shape
       {sizeof(float)}, packedVectorizedBodies, freeObjectsWhenDone);
@@ -238,7 +247,8 @@ auto magic_ponies(const py::bytes &serialized_task, const UserInput &user_input,
   
   return std::make_tuple(isSolved, hadOcclusions, packedImagesArray,
                          packedObjectsArray, numSceneObjects,
-                         simulation_seconds, pack_seconds, relationships_dict);
+                         simulation_seconds, pack_seconds, 
+                         relationships_dict, packedImagesIdsArray);
 }
 }  // namespace
 

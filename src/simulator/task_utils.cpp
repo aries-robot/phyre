@@ -82,6 +82,8 @@ bool isTwoBallTouchingCase(
   return true;
 }
 
+// Need to change into b2ContactListener (https://box2d.org/doc_version_2_4/classb2_contact_listener.html)
+// GetContactList is not accurate.
 bool isTouching(const b2Body& body1, const b2Body& body2) {
   size_t body2Id = getBodyId(body2);
   for (const b2ContactEdge* ce = body1.GetContactList(); ce; ce = ce->next) {
